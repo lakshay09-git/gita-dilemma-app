@@ -1,4 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const { put } = require('@vercel/blob');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -27,6 +28,22 @@ const SYSTEM_PROMPT = [
   '',
   'If someone describes self-harm, suicidal thoughts, abuse, or another acute crisis, do not answer with philosophy alone. Gently say this needs real human support, and point them to a crisis line such as Tele-MANAS in India on 14416.'
 ].join('\n');
+
+async function archive(dilemma, guidance) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+  try {
+    await put(
+      'dilemmas/' + stamp + '.json',
+      JSON.stringify({ savedAt: new Date().toISOString(), dilemma: dilemma, guidance: guidance }),
+      { access: 'public', addRandomSuffix: true, contentType: 'application/json' }
+    );
+  } catch (error) {
+    console.error('Archive failed:', error && error.message);
+  }
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -70,9 +87,7 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ error: 'No guidance came back. Please try again.' });
     }
 
-    if (message.stop_reason === 'max_tokens') {
-      console.warn('Response hit the token ceiling and was cut short.');
-    }
+    await archive(dilemma, guidance);
 
     return res.status(200).json({
       guidance: guidance,

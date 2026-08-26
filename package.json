@@ -4,6 +4,7 @@
   "description": "Gita-based guidance for modern dilemmas",
   "private": true,
   "dependencies": {
-    "@anthropic-ai/sdk": "latest"
+    "@anthropic-ai/sdk": "latest",
+    "@vercel/blob": "latest"
   }
 }

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Archive — Own Battlefield</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Georgia, serif; background:#1a1410; color:#e8d7c3; line-height:1.7; }
+  .wrap { max-width:760px; margin:0 auto; padding:2.5rem 1.25rem 4rem; }
+  h1 { color:#d4af37; font-size:1.7rem; font-weight:400; margin-bottom:0.35rem; }
+  .sub { color:#8b6914; font-size:0.85rem; margin-bottom:2rem; }
+  input { width:100%; padding:11px; background:rgba(20,15,10,0.6); border:1px solid #6b4423; border-radius:4px; color:#e8d7c3; font-family:inherit; font-size:1rem; }
+  input:focus { outline:none; border-color:#d4af37; }
+  button { width:100%; margin-top:10px; padding:12px; background:#d4af37; color:#1a1410; border:none; border-radius:4px; font-family:inherit; font-size:1rem; font-weight:bold; cursor:pointer; }
+  button:disabled { background:#8b6914; cursor:not-allowed; }
+  .entry { border:1px solid #6b4423; border-radius:8px; padding:1.25rem; margin-bottom:1.25rem; background:rgba(107,68,35,0.16); }
+  .when { color:#8b6914; font-size:0.78rem; margin-bottom:0.75rem; }
+  .q { color:#d4af37; font-size:0.98rem; margin-bottom:1rem; white-space:pre-wrap; }
+  .a { color:#b8956a; font-size:0.88rem; white-space:pre-wrap; max-height:150px; overflow:hidden; }
+  .a.open { max-height:none; }
+  .toggle { color:#d4af37; font-size:0.8rem; cursor:pointer; margin-top:0.6rem; display:inline-block; }
+  .msg { color:#ff8f8f; margin-top:1rem; font-size:0.9rem; }
+  .empty { color:#8b6914; font-style:italic; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Archive</h1>
+  <p class="sub">Dilemmas submitted through the site.</p>
+
+  <div id="gate">
+    <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="go" type="button">Open</button>
+    <p id="msg" class="msg"></p>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<script>
+  var pw = document.getElementById('pw');
+  var go = document.getElementById('go');
+  var msg = document.getElementById('msg');
+  var gate = document.getElementById('gate');
+  var listEl = document.getElementById('list');
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function load() {
+    var value = pw.value.trim();
+    if (!value) { msg.textContent = 'Enter the password.'; return; }
+
+    go.disabled = true;
+    go.textContent = 'Opening\u2026';
+    msg.textContent = '';
+
+    try {
+      var res = await fetch('/api/admin?password=' + encodeURIComponent(value));
+      var data = await res.json();
+
+      if (!res.ok) { msg.textContent = data.error || 'Could not open the archive.'; return; }
+
+      gate.style.display = 'none';
+
+      if (!data.entries.length) {
+        listEl.innerHTML = '<p class="empty">No submissions yet.</p>';
+        return;
+      }
+
+      listEl.innerHTML = data.entries.map(function (e, i) {
+        var when = new Date(e.savedAt).toLocaleString();
+        return '<div class="entry">' +
+          '<div class="when">' + esc(when) + '</div>' +
+          '<div class="q">' + esc(e.dilemma) + '</div>' +
+          '<div class="a" id="a' + i + '">' + esc(e.guidance) + '</div>' +
+          '<span class="toggle" data-target="a' + i + '">Show full answer</span>' +
+        '</div>';
+      }).join('');
+
+      listEl.addEventListener('click', function (event) {
+        var target = event.target.getAttribute('data-target');
+        if (!target) return;
+        var box = document.getElementById(target);
+        box.classList.toggle('open');
+        event.target.textContent = box.classList.contains('open') ? 'Collapse' : 'Show full answer';
+      });
+    } catch (error) {
+      msg.textContent = 'Could not reach the server.';
+    } finally {
+      go.disabled = false;
+      go.textContent = 'Open';
+    }
+  }
+
+  go.addEventListener('click', load);
+  pw.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
+</script>
+</body>
+</html>
