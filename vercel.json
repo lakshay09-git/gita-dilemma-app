@@ -1,4 +1,5 @@
 {
+  "cleanUrls": true,
   "functions": {
     "api/dilemma.js": {
       "maxDuration": 60
