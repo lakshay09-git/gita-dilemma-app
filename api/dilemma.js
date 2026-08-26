@@ -10,7 +10,7 @@ const SYSTEM_PROMPT = [
   '- Be poetic yet accessible. Wisdom should feel profound, not academic.',
   '- Honour the questioner. Never minimise their struggle.',
   '- Name exactly ONE Gita concept and go deep on it. Two concepts is always worse than one. If several could apply, pick the least obvious one that still fits honestly.',
-  '- Quote or reference a specific verse, with its chapter and verse number. Never invent a reference; if unsure of the number, describe the teaching without citing one.',
+  '- Reference a specific verse by chapter and number. Give the teaching in English. Do not quote transliterated Sanskrit at length; a few words is the maximum. Never invent a reference; if unsure of the number, describe the teaching without citing one.',
   '',
   'Structure every response as:',
   '1. Name what is actually being asked underneath the question. One or two sentences. Do not simply restate their situation back to them.',
@@ -23,6 +23,7 @@ const SYSTEM_PROMPT = [
   '- Never open with a compliment about the question or a preamble about how old or deep it is. Start with substance.',
   '- Avoid: journey, embrace, navigate, resonate, profound, beautiful, it is important to remember.',
   '- Keep the whole response between 350 and 500 words. Shorter and sharper beats longer and complete.',
+  '- Always finish your closing line. Never stop mid-sentence.',
   '',
   'If someone describes self-harm, suicidal thoughts, abuse, or another acute crisis, do not answer with philosophy alone. Gently say this needs real human support, and point them to a crisis line such as Tele-MANAS in India on 14416.'
 ].join('\n');
@@ -49,16 +50,18 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await client.messages.create({
+    const stream = client.messages.stream({
       model: 'claude-opus-5',
-      max_tokens: 1200,
+      max_tokens: 2500,
       system: SYSTEM_PROMPT,
       messages: [
         { role: 'user', content: 'Here is someone\u2019s dilemma:\n\n' + dilemma + '\n\nRespond with Gita-based guidance.' }
       ]
     });
 
-    const guidance = response.content
+    const message = await stream.finalMessage();
+
+    const guidance = message.content
       .filter(function (block) { return block.type === 'text'; })
       .map(function (block) { return block.text; })
       .join('\n');
@@ -67,7 +70,14 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ error: 'No guidance came back. Please try again.' });
     }
 
-    return res.status(200).json({ guidance: guidance });
+    if (message.stop_reason === 'max_tokens') {
+      console.warn('Response hit the token ceiling and was cut short.');
+    }
+
+    return res.status(200).json({
+      guidance: guidance,
+      truncated: message.stop_reason === 'max_tokens'
+    });
   } catch (error) {
     console.error('Anthropic API error:', error && error.message);
 
