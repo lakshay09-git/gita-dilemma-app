@@ -29,8 +29,15 @@ const SYSTEM_PROMPT = [
   'If someone describes self-harm, suicidal thoughts, abuse, or another acute crisis, do not answer with philosophy alone. Gently say this needs real human support, and point them to a crisis line such as Tele-MANAS in India on 14416.'
 ].join('\n');
 
+function storageReady() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
+}
+
 async function archive(dilemma, guidance) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+  if (!storageReady()) {
+    console.warn('Blob storage not configured; submission not archived.');
+    return;
+  }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 
@@ -38,7 +45,7 @@ async function archive(dilemma, guidance) {
     await put(
       'dilemmas/' + stamp + '.json',
       JSON.stringify({ savedAt: new Date().toISOString(), dilemma: dilemma, guidance: guidance }),
-      { access: 'public', addRandomSuffix: true, contentType: 'application/json' }
+      { access: 'private', addRandomSuffix: true, contentType: 'application/json' }
     );
   } catch (error) {
     console.error('Archive failed:', error && error.message);
